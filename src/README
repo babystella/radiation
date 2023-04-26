@@ -1,0 +1,136 @@
+2023.02
+How to use
+
+Checked:
+  Ubuntu 20.04.5 LTS 
+  (ROS1 only can run on up to Ubuntu 20.04
+   ROS1 can't run on Ubuntu 22.04)
+
+// Install libusb-dev
+sudo apt-get install libusb-dev
+
+//Create catkin work space and source folder
+mkdir -p catkin_ws/src/
+
+//Initialize work space
+cd catkin_ws
+catkin_make
+
+//Create ROS package
+cd src/
+catkin_create_pkg radiation roscpp rospy std_msgs
+
+//Build the package in catkin work space
+cd ~/catkin_ws
+catkin_make
+. ~/catkin_ws/devel/setup.bash
+
+//libusb-dev needs sudo permission, but rosrun can't be executed sudo
+//So we need alternative solution
+//Using udev, we can specify the usb to be used without sudo permission
+cd /etc/udev/rules.d
+sudo gedit 50-my-rules.rules
+
+//and type as following and save
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0661", ATTRS{idProduct}=="2917", MODE="0666", GROUP="plugdev"
+
+//You can check idVendor and idProduct with lsusb command
+lsusb
+
+//The following is an example of the output of lsusb command
+Bus 004 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub
+Bus 003 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 002 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub
+Bus 001 Device 002: ID 0cf3:e007 Qualcomm Atheros Communications 
+Bus 001 Device 017: ID 045e:0084 Microsoft Corp. Basic Optical Mouse
+Bus 001 Device 018: ID 0661:2917 Hamamatsu Photonics K.K. 
+Bus 001 Device 022: ID 04ca:0027 Lite-On Technology Corp. USB Multimedia Keyboard
+Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+
+//The ID is {idVendor}:{idProduct}
+//In this case, the idVendor of Hamamatsu Photonics K.K. is 0661, and the idProduct is 2917
+
+// After writing the file, reload the udev rules
+sudo udevadm control --reload-rules
+
+// And then unplug the device and replug it
+
+// Run
+// ex. Get sievert(update cycle:1s, total time:20s)
+cd ~/catkin_ws/devel/lib/radiation
+rosrun radiation main_node --g_sievert 1 20
+
+//main_node.cpp : executable file
+//kev_sub.cpp : subscriber for KeV
+//sv_sub.cpp : subscriber for Sv
+
+// Display content
+USB initialization success
+Device Open success
+Threshold = 30
+Limit lower = 30
+Limit upper = 1250
+[    0]sievert = 0.169 uSv/h
+[    1]sievert = 0.072 uSv/h
+[    2]sievert = 0.014 uSv/h
+[    3]sievert = 0.048 uSv/h
+[    4]sievert = 0.141 uSv/h
+[    5]sievert = 0.015 uSv/h
+[    6]sievert = 0.020 uSv/h
+[    7]sievert = 0.020 uSv/h
+[    8]sievert = 0.072 uSv/h
+[    9]sievert = 0.069 uSv/h
+[   10]sievert = 0.043 uSv/h
+[   11]sievert = 0.064 uSv/h
+[   12]sievert = 0.037 uSv/h
+[   13]sievert = 0.014 uSv/h
+[   14]sievert = 0.017 uSv/h
+[   15]sievert = 0.085 uSv/h
+[   16]sievert = 0.029 uSv/h
+[   17]sievert = 0.048 uSv/h
+[   18]sievert = 0.104 uSv/h
+[   19]sievert = 0.067 uSv/h
+USB Close
+USB End
+
+
+--------------------------------------------------------------------------------------
+
+Usage:  RadiationDetectorLinux [REQUEST] [PARAM1] [PARAM2]...
+[REQUEST]
+--version           : application version display
+--help              : help display
+
+--reset             : Reset module
+--g_eng_th          : Get gamma-ray energy lower limit
+--s_eng_th          : Set gamma-ray energy lower limit(PARAM1:value)
+                    :  value
+                    :   0[keV] - 4095[keV]
+--g_rd_up           : Get upper limits of effective range of air dose
+--s_rd_up           : Set upper limits of effective range of air dose(PARAM1:value)
+                    :  value
+                    :   30[keV] - 2000[keV]
+--g_rd_lo           : Get lower limits of effective range of air dose
+--s_rd_lo           : Set lower limits of effective range of air dose(PARAM1:value)
+                    :  value
+                    :   30[keV] - 2000[keV]
+--g_data_and_temp   : Get Data and temperature
+--g_sievert         : Get sievert(PARAM1:second,PARAM2:time)
+                    :  second
+                    :   update cycle[s]
+                    :  time
+                    :   total time[s]
+--g_int_temp        : Get internal temperature
+--r_eeprom          : Read EEPROM(PARAM1:address(HEX))
+                    :  address
+                    :   0Ah:Comparator threshold value (Default value: 30 keV)
+                    :       A threshold value used as the default value at startup is stored.
+                    :   0Ch:Lower limit of energy range (Default value: 30 keV)
+                    :       This sets the gamma-ray energy range that will be valid when
+                    :       converting to Sv/h.
+                    :   0Eh:Higher limit of energy range (Default value: 2000 keV)
+                    :       This sets the gamma-ray energy range that will be valid when
+                    :       converting to Sv/h.
+                    :   10h:Calibration coefficient for acquired radiation dose (Default value: 1000 (1x))
+                    :       Coefficient for correcting the acquired radiation dose rate that has
+                    :       changed over time.
