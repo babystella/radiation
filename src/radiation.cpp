@@ -1,4 +1,5 @@
 #include <ros/ros.h>
+#include <std_msgs/Header.h>
 #include <std_msgs/Float32.h>
 #include "std_msgs/UInt32.h"
 #include <errno.h>
@@ -866,7 +867,7 @@ static int ProcGetSievert(struct usb_dev_handle *dh,
         if (busy == 0)
         {
             double sv_val = 0.0;
-
+            double norm_sv = 0.0;
             busy = 1;
 
 
@@ -914,13 +915,18 @@ static int ProcGetSievert(struct usb_dev_handle *dh,
             printf("[%5d]sievert = %0.3f uSv/h\n", t, sv_val);
             
             fprintf(ftemp, "%d, %f\n", t,sv_val);
-
+            
+            norm_sv = 1/(1+exp((-10)*(sv_val-0.5)));
+            
             // std_msgs::Float32 sv_digit;
             radiation::sievert sv_msg;
             sv_msg.sv = sv_val;
             
+
+            
+
             // set the message timestamp
-            // sv_digit_msg.header.stamp = ros::Time::now();
+            sv_msg.header.stamp = ros::Time::now();
             
             
             sv_pub.publish(sv_msg);
@@ -1027,9 +1033,9 @@ int main(int argc, char *argv[])
   
     ROS_INFO_STREAM("radiation detection start " << nh.getNamespace());
 
-    ros::Publisher sievert_pub = nh.advertise<radiation::sievert>("/radiation/sievert", 1000);
+    ros::Publisher sievert_pub = nh.advertise<radiation::sievert>("/radiation/sievert", 20);
 
-    ros::Publisher kev_pub = nh.advertise<radiation::keV>("/radiation/keV", 1000);
+    ros::Publisher kev_pub = nh.advertise<radiation::keV>("/radiation/keV", 20);
 
 
 
