@@ -22,7 +22,7 @@
 #define APP_VERSION "1.0.0" // Application version
 
 #define GE_FUNCTION_C12137 "gef_C12137.csv"       // G(E) Function file name C12137.csv
-// #define GE_FUNCTION_C12137_01 "gef_C12137-01.csv" // G(E) Function file name C12137-01.csv
+#define GE_FUNCTION_C12137_01 "gef_C12137-01.csv" // G(E) Function file name C12137-01.csv
 #define GE_FUNCTION_FILENAME GE_FUNCTION_C12137   // Select G(E) Function file name
 
 #define GE_FUNCTION_TABLE_SIZE (4096) // G(E) Function table size
@@ -104,10 +104,10 @@ static int ProcGetInternalTemperature(struct usb_dev_handle *dh);
 
 // Get sievert
 static int ProcGetSievert(struct usb_dev_handle *dh,
-                          int second,
+                          double second,
                           int times, 
-                          ros::Publisher &sv_pub, 
-                          ros::Publisher &kev_pub);
+                          ros::Publisher &sv_pub 
+                          );
 
 // Read EEPROM
 static int ProcReadEeprom(struct usb_dev_handle *dh,
@@ -607,10 +607,10 @@ static int ProcGetInternalTemperature(struct usb_dev_handle *dh)
 
 /* Get sievert and energy*/
 static int ProcGetSievert(struct usb_dev_handle *dh,
-                          int second,
+                          double second,
                           int times, 
-                          ros::Publisher &sv_pub, 
-                          ros::Publisher &kev_pub)
+                          ros::Publisher &sv_pub 
+                          )
 
 
 
@@ -621,7 +621,7 @@ static int ProcGetSievert(struct usb_dev_handle *dh,
     // std::string sievert_filename = "sievert_";
 
     char busy = 1;
-    FILE *fptr, *ftemp;
+    FILE *ftcounts, *ftemp;
     int count = 0, t = 0;
     int res = 0;
     int err_retry_cnt = 0;
@@ -640,43 +640,11 @@ static int ProcGetSievert(struct usb_dev_handle *dh,
     ////////////////////////    FILE    ////////////////////////////////   
 
 
-
-    char* base_filename1 = "energy.csv";
     char* base_filename2 = "sievert.csv";
+    char* base_filename3 = "counts.csv";
 
 
     // Check if the base filename already exists
-    FILE* base_file1 = fopen(base_filename1, "r");
-    if (base_file1 != NULL)
-    {
-        // If the base filename exists, find the next available sequence number
-        fclose(base_file1);
-        int sequence_number = 1;
-        char new_filename[20];
-        while (true)
-        {
-            sprintf(new_filename, "energy_%d.csv", sequence_number);
-            fptr = fopen(new_filename, "r");
-            if (fptr == NULL)
-            {
-                // If the new filename doesn't exist, use it to save the new CSV file
-                fptr = fopen(new_filename, "w");
-                break;
-            }
-            else
-            {
-                // If the new filename already exists, increment the sequence number and try again
-                sequence_number++;
-            }
-        }
-    }
-    else
-    {
-        // If the base filename doesn't exist, use it to save the new CSV file
-        fptr = fopen(base_filename1, "w");
-
-    }
-
 
     FILE* base_file2 = fopen(base_filename2, "r");
     if (base_file2 != NULL)
@@ -709,9 +677,9 @@ static int ProcGetSievert(struct usb_dev_handle *dh,
 
     }
 
-    char* base_filename3 = "counts.csv";
 
-    FILE *ftcounts;
+
+
     FILE* base_file3 = fopen(base_filename3, "r");
     if (base_file3 != NULL)
     {
@@ -745,9 +713,6 @@ static int ProcGetSievert(struct usb_dev_handle *dh,
     }
 
     fprintf(ftcounts, "Energy (Kev2I), counts\n");
-
-
-    fprintf(fptr, "Time, Energy (Kev2I)\n");
     fprintf(ftemp, "Time, Sievert (uSv/h) \n");
 
 
@@ -881,26 +846,7 @@ static int ProcGetSievert(struct usb_dev_handle *dh,
                   GeHistogramCount [keV_Index] += 1;
                 }
                 
-                energycounts.push_back(keV_Index);
-
                 printf("Kev2I[%d]:%d\n", n, keV_Index);
-
-                fprintf(fptr, "%d, %d\n", t, keV_Index);
-                // fprintf(fptr2, "%d,%f\n", t, GeHistogramIndex[keV_Index]);
-
-                // std_msgs::Float32 kev_msg;
-                radiation::keV kev_msg;
-                kev_msg.keV = GeHistogramIndex[keV_Index];
-                
-                
-                // set the message timestamp
-                kev_msg.header.stamp = ros::Time::now();
-                
-                
-                kev_pub.publish(kev_msg);
-
-                ros::spinOnce();
-
 
             }
 
@@ -914,6 +860,7 @@ static int ProcGetSievert(struct usb_dev_handle *dh,
             sv_val = sv_val * 3600 / second / 1E+6;
             printf("[%5d]sievert = %0.3f uSv/h\n", t, sv_val);
             
+            
             fprintf(ftemp, "%d, %f\n", t,sv_val);
             
             norm_sv = 1/(1+exp((-10)*(sv_val-0.5)));
@@ -922,8 +869,7 @@ static int ProcGetSievert(struct usb_dev_handle *dh,
             radiation::sievert sv_msg;
             sv_msg.sv = sv_val;
             
-
-            
+       
 
             // set the message timestamp
             sv_msg.header.stamp = ros::Time::now();
@@ -931,35 +877,22 @@ static int ProcGetSievert(struct usb_dev_handle *dh,
             
             sv_pub.publish(sv_msg);
 
-    
-
-            /////////////////////   wright in counts    /////////////////////////////
-            
-            
-            std::sort(energycounts.begin(), energycounts.end());
-            
-            // Use std::unique to move all the unique elements to the beginning of the vector
-            auto last = std::unique(energycounts.begin(), energycounts.end());
-            
-            // Loop over each unique element and count its occurrences
-            for (auto it = energycounts.begin(); it != last; ++it) 
-            {
-                int count = std::count(energycounts.begin(), last, *it);
-                fprintf(ftcounts, "%d, %d\n", *it, count);
-                // printf("%d, %d\n", *it, count);         // for debug
-                // std::cout << *it << " occurs " << count << " times" << std::endl;
-            }
-
-
 
             ros::spinOnce();
 
         }
     }
   
-    printf("ended succesfully\n");
 
-    fclose(fptr);
+    /////////////////////   wright in counts    /////////////////////////////
+
+    for (int i = 0; i < GE_FUNCTION_TABLE_SIZE; i++) 
+    {      
+        fprintf(ftcounts, "%f,%d\n", GeHistogramIndex[i], GeHistogramCount[i]);
+    }
+
+
+    printf("ended succesfully\n");
     fclose(ftemp);
     fclose(ftcounts);
     return 0;
@@ -1035,7 +968,7 @@ int main(int argc, char *argv[])
 
     ros::Publisher sievert_pub = nh.advertise<radiation::sievert>("/radiation/sievert", 20);
 
-    ros::Publisher kev_pub = nh.advertise<radiation::keV>("/radiation/keV", 20);
+    // ros::Publisher kev_pub = nh.advertise<radiation::keV>("/radiation/keV", 20);
 
 
 
@@ -1246,11 +1179,11 @@ int main(int argc, char *argv[])
                 if (command_param_cnt >= 2)
                 {
                     char *endptr[2];
-                    unsigned int second = strtol(&command_param_str_list[0][0], &endptr[0], 10);
-                    unsigned int times = strtol(&command_param_str_list[1][0], &endptr[1], 10);
+                    double second = strtod(&command_param_str_list[0][0], &endptr[0]);
+                    unsigned short times = strtol(&command_param_str_list[1][0], &endptr[1], 10);
                     if (strlen(endptr[0]) == 0 && strlen(endptr[1]) == 0)
                     {
-                        if (ProcGetSievert(dh, second, times, sievert_pub, kev_pub) == 0)
+                        if (ProcGetSievert(dh, second, times, sievert_pub) == 0)
                         {
                             // Success
                         }
