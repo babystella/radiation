@@ -28,8 +28,8 @@ Checked: Ubuntu 20.04.5 LTS (ROS1 only can run on up to Ubuntu 20.04 ROS1 can't 
 
 // And then unplug the device and replug it
 
-/ Run // ex. Get sievert(update cycle:1s, total time:20s) Go to the directory
+/ Run // ex. Get sievert(update cycle:0.1s(10 Hz), total time:20s) Go to the directory
 
-rosrun radiation radiation --g_sievert 1 60
+rosrun radiation radiation --g_sievert 0.1 60
 
 //radiation.cpp : executable file //kev_sub.cpp : subscriber for KeV //sv_sub.cpp : subscriber for Sv
